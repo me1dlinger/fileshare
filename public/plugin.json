@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/@ztools-center/ztools-api-types/resource/ztools.schema.json",
-  "name": "z-share",
-  "title": "共享文件",
+  "name": "fileshare",
+  "title": "文件共享",
   "description": "局域网文件共享，支持在线预览文本、代码、Markdown、音视频",
   "author": "meidlinger",
   "version": "1.0.0",
@@ -20,7 +20,7 @@
         "共享文件",
         "share",
         "文件共享",
-        "zshare",
+        "share",
         {
           "type": "files",
           "fileType": "all",
