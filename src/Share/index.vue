@@ -829,8 +829,8 @@ function handleShareText() {
 .port-error-text { font-size: 11px; color: var(--danger); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; flex-shrink: 1; }
 
 /* Log type badge */
-.log-type { width: 60px; }
-.log-type-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 8px; line-height: 16px; }
+.log-type { width: 76px; white-space: nowrap; }
+.log-type-badge { display: inline-block; font-size: 10px; padding: 1px 8px; border-radius: 8px; line-height: 16px; white-space: nowrap; }
 .log-type-badge.download { background: #dbeafe; color: #2563eb; }
 .log-type-badge.upload { background: #dcfce7; color: #16a34a; }
 [data-theme="dark"] .log-type-badge.download { background: #1e3a5f; color: #60a5fa; }
