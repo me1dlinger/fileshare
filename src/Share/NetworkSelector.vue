@@ -51,6 +51,9 @@ function handleChange(e: Event) {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 220px;
 }
 
 .nic-icon {
@@ -65,7 +68,10 @@ function handleChange(e: Event) {
   font-size: 12px;
   outline: none;
   cursor: pointer;
-  max-width: 180px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  text-overflow: ellipsis;
 }
 
 .nic-select option {

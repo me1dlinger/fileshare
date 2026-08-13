@@ -22,6 +22,10 @@ interface SharedItem {
   enabled: boolean
   children?: SharedItem[]
   fileCount?: number
+  origin?: { type: 'upload'; ip: string; time: string }
+  hash?: string
+  hashSize?: number
+  hashMtime?: number
 }
 
 interface ServerConfig {
@@ -37,15 +41,19 @@ interface ScanResult {
 }
 
 interface DownloadLog {
+  type?: 'download' | 'upload'
   ip: string
   filePath: string
   fileName: string
+  size?: number
   timestamp: string
 }
 
 interface Services {
-  startServer: (port: number, ip: string) => boolean
+  startServer: (port: number, ip: string) => Promise<{ ok: boolean; error?: string }>
   stopServer: () => void
+  setPort: (port: number) => boolean
+  getFreePort: (ip: string) => Promise<number>
   getServerStatus: () => ServerConfig
   regenerateToken: () => string
   addShares: (paths: string[]) => { added: SharedItem[]; skipped: string[] }

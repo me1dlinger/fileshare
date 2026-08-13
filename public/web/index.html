@@ -42,11 +42,11 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 .app { max-width: 960px; margin: 0 auto; padding: 24px 20px 60px; min-height: 100vh; }
 
 /* ===== Header ===== */
-.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--border); gap: 16px; flex-wrap: wrap; }
 .header-left { display: flex; align-items: center; gap: 10px; }
 .header-left svg { width: 24px; height: 24px; stroke: var(--primary); fill: none; stroke-width: 1.5; }
 .header-left h1 { font-size: 20px; font-weight: 600; }
-.header-right { display: flex; align-items: center; gap: 8px; }
+.header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .header-right .file-count { font-size: 12px; color: var(--text3); }
 .theme-btn { width: 34px; height: 34px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .theme-btn:hover { background: var(--bg3); }
@@ -88,6 +88,22 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 .modal-body code { font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 13px; }
 .modal-body .empty-hint { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: var(--text3); gap: 8px; }
 .modal-body .empty-hint svg { width: 40px; height: 40px; stroke: var(--text3); fill: none; stroke-width: 1.5; }
+
+/* ===== Confirm Dialog (unified custom styling, no native dialogs) ===== */
+.confirm-modal { width: 100%; max-width: 380px; }
+.confirm-body { padding: 26px 24px 6px; text-align: center; }
+.confirm-icon { width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 50%; background: #fef2f2; display: flex; align-items: center; justify-content: center; }
+[data-theme="dark"] .confirm-icon { background: #3b1515; }
+.confirm-icon svg { width: 22px; height: 22px; stroke: var(--danger); fill: none; stroke-width: 2; }
+.confirm-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+.confirm-msg { font-size: 13px; color: var(--text2); word-break: break-all; line-height: 1.6; }
+.confirm-actions { display: flex; gap: 10px; padding: 20px 24px 24px; }
+.confirm-btn { flex: 1; padding: 9px 0; border-radius: var(--radius); font-size: 13px; font-weight: 500; border: 1px solid var(--border); background: var(--bg2); color: var(--text); transition: all 0.15s; }
+.confirm-btn:hover { background: var(--bg3); }
+.confirm-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.confirm-btn.primary:hover { background: #2563eb; }
+.confirm-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.confirm-btn.danger:hover { background: #dc2626; }
 
 /* ===== Markdown rendered ===== */
 .md-body { line-height: 1.7; }
@@ -157,7 +173,72 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 /* Download button per row */
 .dl-btn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: none; background: none; color: var(--text3); cursor: pointer; border-radius: 4px; flex-shrink: 0; }
 .dl-btn:hover { background: var(--bg3); color: var(--primary); }
+.dl-btn.del:hover { background: #fef2f2; color: var(--danger); }
+[data-theme="dark"] .dl-btn.del:hover { background: #3b1515; }
 .dl-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* ===== Search Box ===== */
+.search-box { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 10px; height: 34px; min-width: 140px; transition: border-color 0.15s; }
+.search-box:focus-within { border-color: var(--primary); }
+.search-box svg { width: 14px; height: 14px; stroke: var(--text3); fill: none; stroke-width: 2; flex-shrink: 0; }
+.search-box input { border: none; background: transparent; color: var(--text); font-size: 13px; outline: none; width: 100%; }
+.search-box input::placeholder { color: var(--text3); }
+.search-clear { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text3); flex-shrink: 0; }
+.search-clear:hover { background: var(--bg3); color: var(--text); }
+.search-clear svg { width: 10px; height: 10px; }
+
+/* ===== Upload button ===== */
+.upload-btn { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: var(--radius); background: var(--primary); color: #fff; font-size: 13px; font-weight: 500; transition: background 0.15s; flex-shrink: 0; }
+.upload-btn:hover { background: #2563eb; }
+.upload-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* ===== Section grouping (host shares vs client uploads) ===== */
+.section { margin-bottom: 4px; }
+.section-header { display: flex; align-items: center; gap: 8px; margin: 20px 0 2px; padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); }
+.section-header .section-label { display: flex; align-items: center; gap: 6px; }
+.section-header .section-label svg { width: 14px; height: 14px; stroke: var(--primary); fill: none; stroke-width: 1.5; }
+.section-header .section-ip { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--primary); font-weight: 500; font-size: 11px; background: var(--primary-light); padding: 1px 8px; border-radius: 10px; }
+.section-header .section-count { font-weight: 400; color: var(--text3); margin-left: auto; }
+
+/* ===== Upload progress panel ===== */
+.upload-panel { position: fixed; right: 20px; bottom: 20px; width: 320px; max-width: calc(100vw - 40px); background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 1500; overflow: hidden; display: none; }
+.upload-panel.show { display: block; animation: slideUp 0.2s ease-out; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.upload-panel-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.upload-panel-header svg { width: 14px; height: 14px; stroke: var(--primary); fill: none; stroke-width: 2; }
+.upload-panel-title { font-size: 13px; font-weight: 600; flex: 1; }
+.upload-panel-close { width: 24px; height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--text3); flex-shrink: 0; }
+.upload-panel-close:hover { background: var(--bg3); color: var(--text); }
+.upload-panel-close svg { width: 12px; height: 12px; stroke: currentColor; }
+.upload-panel-body { max-height: 300px; overflow-y: auto; }
+.upload-row { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.upload-row:last-child { border-bottom: none; }
+.upload-row-top { display: flex; align-items: center; gap: 8px; }
+.upload-row-icon { width: 16px; height: 16px; flex-shrink: 0; }
+.upload-row-icon svg { width: 16px; height: 16px; }
+.upload-row-icon.uploading svg { stroke: var(--primary); fill: none; stroke-width: 2; animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.upload-row-icon.done svg { stroke: var(--success); fill: none; stroke-width: 2; }
+.upload-row-icon.error svg { stroke: var(--danger); fill: none; stroke-width: 2; }
+.upload-row-name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-row-status { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+.upload-row-status.done { color: var(--success); }
+.upload-row-status.error { color: var(--danger); }
+.progress-track { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.progress-fill { height: 100%; background: var(--primary); width: 0; transition: width 0.15s ease; }
+.progress-fill.done { background: var(--success); }
+.progress-fill.error { background: var(--danger); }
+
+/* ===== Drag & drop overlay ===== */
+.drop-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 3000; display: none; align-items: center; justify-content: center; }
+.drop-overlay.show { display: flex; }
+.drop-box { background: var(--bg); border: 2px dashed var(--primary); border-radius: 16px; padding: 48px 64px; text-align: center; pointer-events: none; }
+.drop-box svg { width: 48px; height: 48px; stroke: var(--primary); fill: none; stroke-width: 1.5; margin-bottom: 16px; }
+.drop-box-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.drop-box-desc { font-size: 13px; color: var(--text2); }
+
+/* ===== Empty search result ===== */
+.empty-search { padding: 40px 20px; text-align: center; color: var(--text3); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -170,6 +251,18 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
     </div>
     <div class="header-right">
       <span class="file-count" id="fileCount"></span>
+      <div class="search-box" id="searchBox">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="搜索文件..." autocomplete="off" />
+        <button class="search-clear" id="searchClear" style="display:none" title="清除搜索">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <button class="upload-btn" id="uploadBtn" title="上传文件到共享">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        上传文件
+      </button>
+      <input type="file" id="uploadInput" multiple style="display:none" />
       <button class="theme-btn" id="refreshBtn" title="刷新文件列表">
         <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
       </button>
@@ -201,6 +294,27 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   <div class="web-toast" id="webToast"></div>
 </div>
 
+<!-- Upload progress panel -->
+<div class="upload-panel" id="uploadPanel">
+  <div class="upload-panel-header">
+    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <span class="upload-panel-title">上传</span>
+    <button class="upload-panel-close" id="uploadPanelClose" title="关闭">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="upload-panel-body" id="uploadPanelBody"></div>
+</div>
+
+<!-- Drag & drop overlay -->
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-box">
+    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="drop-box-title">松开以共享文件</div>
+    <div class="drop-box-desc">文件将上传并共享给所有访问者</div>
+  </div>
+</div>
+
 <!-- Preview Modal -->
 <div class="modal-overlay" id="modalOverlay" style="display:none">
   <div class="modal" id="modal">
@@ -222,6 +336,20 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   </div>
 </div>
 
+<!-- Confirm Dialog -->
+<div class="modal-overlay" id="confirmOverlay" style="display:none">
+  <div class="modal confirm-modal">
+    <div class="confirm-body">
+      <div class="confirm-icon">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div class="confirm-title" id="confirmTitle">确认操作</div>
+      <div class="confirm-msg" id="confirmMsg"></div>
+    </div>
+    <div class="confirm-actions" id="confirmActions"></div>
+  </div>
+</div>
+
 <script>
 // ===== State =====
 const params = new URLSearchParams(location.search);
@@ -232,6 +360,9 @@ let currentFilePath = null;
 let currentFileExt = '';
 let currentViewMode = 'preview';
 let currentRawContent = '';
+let searchQuery = '';
+let searchTimer = null;
+let myIp = ''; // this client's IP as seen by the server
 
 // ===== Init =====
 function init() {
@@ -251,7 +382,14 @@ function init() {
     }
   });
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') {
+      if (document.getElementById('confirmOverlay').style.display !== 'none') closeDialog(null);
+      else closeModal();
+    }
+  });
+  // Dialog wiring (overlay click closes like a cancel)
+  document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeDialog(null);
   });
   document.getElementById('selectAllCb').addEventListener('click', selectAllFiles);
   document.getElementById('dlSelectedBtn').addEventListener('click', downloadSelected);
@@ -266,6 +404,63 @@ function init() {
       }).catch(() => {});
     }
   });
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', function() {
+    searchQuery = this.value.trim().toLowerCase();
+    document.getElementById('searchClear').style.display = searchQuery ? '' : 'none';
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderSections, 200);
+  });
+  document.getElementById('searchClear').addEventListener('click', function() {
+    searchInput.value = '';
+    searchQuery = '';
+    this.style.display = 'none';
+    renderSections();
+  });
+
+  // Upload (hidden in scoped views — scoped links are read-only)
+  if (SCOPE_PATH) {
+    document.getElementById('uploadBtn').style.display = 'none';
+  }
+  document.getElementById('uploadBtn').addEventListener('click', function() {
+    document.getElementById('uploadInput').click();
+  });
+  document.getElementById('uploadInput').addEventListener('change', function() {
+    if (this.files && this.files.length > 0) {
+      uploadFiles(this.files);
+      this.value = '';
+    }
+  });
+  document.getElementById('uploadPanelClose').addEventListener('click', function() {
+    document.getElementById('uploadPanel').classList.remove('show');
+  });
+
+  // Drag & drop upload
+  let dragDepth = 0;
+  document.addEventListener('dragenter', function(e) {
+    e.preventDefault();
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+      dragDepth++;
+      document.getElementById('dropOverlay').classList.add('show');
+    }
+  });
+  document.addEventListener('dragover', function(e) { e.preventDefault(); });
+  document.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) document.getElementById('dropOverlay').classList.remove('show');
+  });
+  document.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dragDepth = 0;
+    document.getElementById('dropOverlay').classList.remove('show');
+    if (!SCOPE_PATH && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  });
+
   loadFileList();
 }
 
@@ -296,11 +491,12 @@ async function loadFileList() {
     const res = await fetch(apiUrl);
     const data = await res.json();
     fileTree = data.files || [];
+    myIp = data.clientIp || '';
     // If scoped, hide header title area (show scope path instead)
     if (data.scoped && data.scopePath) {
       document.querySelector('.header-left h1').textContent = decodeURIComponent(data.scopePath).split(/[/\\]/).filter(Boolean).pop() || 'FileShare';
     }
-    renderTree(fileTree, document.getElementById('tree'), 0);
+    renderSections();
     updateFileCount(fileTree);
   } catch (err) {
     document.getElementById('tree').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">加载文件列表失败</div>';
@@ -316,6 +512,103 @@ function countFiles(items) {
 }
 function updateFileCount(items) {
   document.getElementById('fileCount').textContent = countFiles(items) + ' 个文件';
+}
+
+// ===== Section grouping: host shares vs per-IP client uploads =====
+function groupItems(items) {
+  const host = [];
+  const byIp = {};
+  for (const item of items) {
+    if (item.origin && item.origin.type === 'upload') {
+      const ip = item.origin.ip || '未知来源';
+      if (!byIp[ip]) byIp[ip] = [];
+      byIp[ip].push(item);
+    } else {
+      host.push(item);
+    }
+  }
+  const uploadSections = Object.entries(byIp)
+    .map(([ip, list]) => {
+      list.sort((a, b) => ((b.origin && b.origin.time) || '').localeCompare((a.origin && a.origin.time) || ''));
+      return { ip: ip, items: list };
+    })
+    .sort((a, b) => ((b.items[0].origin && b.items[0].origin.time) || '').localeCompare((a.items[0].origin && a.items[0].origin.time) || ''));
+  return { host, uploadSections };
+}
+
+// ===== Search filter: keep items whose name matches or whose children match =====
+function filterTree(items, q) {
+  if (!q) return items;
+  const result = [];
+  for (const item of items) {
+    const nameMatch = (item.name || '').toLowerCase().includes(q);
+    let children = null;
+    if (item.children && item.children.length > 0) {
+      children = filterTree(item.children, q);
+    }
+    if (nameMatch || (children && children.length > 0)) {
+      const copy = { name: item.name, path: item.path, isDirectory: item.isDirectory };
+      if (item.origin) copy.origin = item.origin;
+      if (children && children.length > 0) copy.children = children;
+      result.push(copy);
+    }
+  }
+  return result;
+}
+
+function renderSections() {
+  const treeEl = document.getElementById('tree');
+  treeEl.innerHTML = '';
+
+  const q = searchQuery.trim().toLowerCase();
+  const { host, uploadSections } = groupItems(fileTree);
+  const filteredHost = filterTree(host, q);
+  const filteredUploads = uploadSections
+    .map(s => ({ ip: s.ip, items: filterTree(s.items, q) }))
+    .filter(s => s.items.length > 0);
+
+  let anyRendered = false;
+
+  // Host shares section
+  if (filteredHost.length > 0) {
+    const section = document.createElement('div');
+    section.className = 'section';
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = '<span class="section-label"><svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.5l-1.5-2H5a2 2 0 00-2 2z"/></svg>主机共享</span>' +
+      '<span class="section-count">' + countFiles(filteredHost) + ' 个文件</span>';
+    section.appendChild(header);
+    const rows = document.createElement('div');
+    rows.className = 'section-rows';
+    section.appendChild(rows);
+    renderTree(filteredHost, rows, 0);
+    treeEl.appendChild(section);
+    anyRendered = true;
+  }
+
+  // Client upload sections, one per IP
+  for (const s of filteredUploads) {
+    const section = document.createElement('div');
+    section.className = 'section';
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = '<span class="section-label"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>客户端上传</span>' +
+      '<span class="section-ip">' + escHtml(s.ip) + '</span>' +
+      '<span class="section-count">' + countFiles(s.items) + ' 个文件</span>';
+    section.appendChild(header);
+    const rows = document.createElement('div');
+    rows.className = 'section-rows';
+    section.appendChild(rows);
+    renderTree(s.items, rows, 0);
+    treeEl.appendChild(section);
+    anyRendered = true;
+  }
+
+  if (!anyRendered) {
+    treeEl.innerHTML = q
+      ? '<div class="empty-search">没有匹配「' + escHtml(searchQuery) + '」的文件</div>'
+      : '<div class="empty-search">暂无共享文件</div>';
+  }
 }
 
 // ===== Previewability =====
@@ -342,7 +635,6 @@ function isPreviewable(ext) {
 
 // ===== Render Tree =====
 function renderTree(items, parent, depth) {
-  parent.innerHTML = '';
   for (const item of items) {
     const container = document.createElement('div');
     const row = document.createElement('div');
@@ -386,21 +678,26 @@ function renderTree(items, parent, depth) {
       row.appendChild(badge);
     }
 
-    // Download button (directories too)
+    // Download button (directories download as ZIP, files directly)
     if (item.isDirectory) {
       const dlBtn = document.createElement('button');
       dlBtn.className = 'dl-btn';
-      dlBtn.title = '下载目录 ' + item.name;
-      dlBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      dlBtn.title = '打包下载 ' + item.name;
+      dlBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 8v12a2 2 0 01-2 2H5a2 2 0 01-2-2V8"/><polyline points="7 8 7 4 17 4 17 8"/><polyline points="3 8 21 8"/></svg>';
       dlBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        downloadDir(item);
+        downloadZipPaths([item.path]);
       });
       row.appendChild(dlBtn);
-      // Spacer for alignment
-      const spacer = document.createElement('span');
-      spacer.style.cssText = 'width:39px;flex-shrink:0';
-      row.appendChild(spacer);
+
+      // Checkbox (select whole directory for bulk ZIP download)
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'tree-cb';
+      cb.dataset.path = item.path;
+      cb.dataset.name = item.name;
+      cb.addEventListener('click', function(e) { e.stopPropagation(); updateBulkBar(); });
+      row.appendChild(cb);
     } else {
       const dlBtn = document.createElement('button');
       dlBtn.className = 'dl-btn';
@@ -411,6 +708,19 @@ function renderTree(items, parent, depth) {
         downloadFile(item.path, item.name);
       });
       row.appendChild(dlBtn);
+
+      // Delete button — only for uploads made from this client's IP (or the owner)
+      if (canDeleteOwnUpload(item)) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'dl-btn del';
+        delBtn.title = '删除我上传的文件';
+        delBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+        delBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          deleteUpload(item);
+        });
+        row.appendChild(delBtn);
+      }
 
       // Checkbox
       const cb = document.createElement('input');
@@ -685,6 +995,19 @@ function downloadFile(filePath, fileName) {
   document.body.removeChild(a);
 }
 
+// Download one or more paths as a single ZIP archive
+function downloadZipPaths(paths) {
+  if (!paths || paths.length === 0) return;
+  const url = '/api/zip?token=' + TOKEN + paths.map(p => '&path=' + encodeURIComponent(p)).join('');
+  const a = document.createElement('a');
+  a.href = url;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('正在打包下载...');
+}
+
 function getCheckedFiles() {
   const cbs = document.querySelectorAll('.tree-cb:checked');
   const files = [];
@@ -692,6 +1015,19 @@ function getCheckedFiles() {
     if (cb.dataset.path) files.push({ path: cb.dataset.path, name: cb.dataset.name });
   });
   return files;
+}
+
+// Drop paths that live inside another selected path (avoids duplicates in ZIP)
+function dedupePaths(paths) {
+  const sorted = paths.slice().sort((a, b) => a.length - b.length);
+  const result = [];
+  for (const p of sorted) {
+    const norm = p.replace(/\\/g, '/');
+    if (!result.some(r => norm.startsWith(r.replace(/\\/g, '/') + '/'))) {
+      result.push(p);
+    }
+  }
+  return result;
 }
 
 function updateBulkBar() {
@@ -713,38 +1049,238 @@ function selectAllFiles() {
 function downloadSelected() {
   const files = getCheckedFiles();
   if (files.length === 0) return;
-  // Download files sequentially with a small delay
-  files.forEach((f, i) => {
-    setTimeout(() => downloadFile(f.path, f.name), i * 300);
-  });
+  downloadZipPaths(dedupePaths(files.map(f => f.path)));
 }
 
 function downloadAllFiles() {
   document.querySelectorAll('.tree-cb[data-path]').forEach(cb => { cb.checked = true; });
   updateBulkBar();
-  downloadSelected();
+  downloadZipPaths(fileTree.map(item => item.path));
 }
 
-// Recursively collect all file paths under a directory item
-function collectDirFiles(item, list) {
-  if (!item.children) return;
-  for (const child of item.children) {
-    if (child.isDirectory) {
-      collectDirFiles(child, list);
+// ===== Upload deletion (restricted by uploader IP) =====
+function canDeleteOwnUpload(item) {
+  return !!item.origin && item.origin.type === 'upload' &&
+    !!myIp && myIp === item.origin.ip;
+}
+
+// Unified custom dialog — replaces every native, unstyled alert/confirm.
+// Buttons are rendered dynamically so one component covers alert (single
+// button), confirm (cancel/ok) and choice (overwrite/rename/skip) cases.
+let dialogResolve = null;
+function openDialog(opts) {
+  return new Promise((resolve) => {
+    dialogResolve = resolve;
+    document.getElementById('confirmTitle').textContent = opts.title || '提示';
+    document.getElementById('confirmMsg').textContent = opts.message || '';
+    const actions = document.getElementById('confirmActions');
+    actions.innerHTML = '';
+    (opts.buttons || [{ text: '确定', value: true, primary: true }]).forEach(function(b) {
+      const btn = document.createElement('button');
+      btn.className = 'confirm-btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : '');
+      btn.textContent = b.text;
+      btn.addEventListener('click', function() { closeDialog(b.value); });
+      actions.appendChild(btn);
+    });
+    document.getElementById('confirmOverlay').style.display = 'flex';
+  });
+}
+function closeDialog(result) {
+  document.getElementById('confirmOverlay').style.display = 'none';
+  if (dialogResolve) { dialogResolve(result); dialogResolve = null; }
+}
+function showConfirm(message, title, okText) {
+  return openDialog({
+    title: title || '确认操作',
+    message: message,
+    buttons: [
+      { text: '取消', value: false },
+      { text: okText || '确定', value: true, danger: true }
+    ]
+  });
+}
+function showAlert(message, title) {
+  return openDialog({
+    title: title || '提示',
+    message: message,
+    buttons: [{ text: '确定', value: true, primary: true }]
+  });
+}
+
+async function deleteUpload(item) {
+  const ok = await showConfirm('确定删除「' + item.name + '」？删除后不可恢复。', '删除确认', '删除');
+  if (!ok) return;
+  try {
+    const res = await fetch('/api/delete?path=' + encodeURIComponent(item.path) + '&token=' + encodeURIComponent(TOKEN), { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      showToast('已删除「' + item.name + '」');
+      loadFileList();
     } else {
-      list.push({ path: child.path, name: child.name });
+      showToast('删除失败：' + (data.error || ('HTTP ' + res.status)));
     }
+  } catch (_e) {
+    showToast('删除失败：网络错误');
   }
 }
 
-function downloadDir(item) {
-  const files = [];
-  collectDirFiles(item, files);
+// ===== Upload =====
+function uploadFiles(fileList) {
+  const files = Array.from(fileList || []);
   if (files.length === 0) return;
-  showToast('正在下载 ' + files.length + ' 个文件...');
-  files.forEach((f, i) => {
-    setTimeout(() => downloadFile(f.path, f.name), i * 300);
+
+  const panel = document.getElementById('uploadPanel');
+  const body = document.getElementById('uploadPanelBody');
+  panel.classList.add('show');
+
+  let pending = files.length;
+
+  files.forEach(file => {
+    const row = document.createElement('div');
+    row.className = 'upload-row';
+    row.innerHTML =
+      '<div class="upload-row-top">' +
+        '<span class="upload-row-icon uploading"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.22-8.56"/><polyline points="21 3 21 9 15 9"/></svg></span>' +
+        '<span class="upload-row-name">' + escHtml(file.name) + '</span>' +
+        '<span class="upload-row-status">0%</span>' +
+      '</div>' +
+      '<div class="progress-track"><div class="progress-fill"></div></div>';
+    body.insertBefore(row, body.firstChild);
+
+    const statusEl = row.querySelector('.upload-row-status');
+    const iconEl = row.querySelector('.upload-row-icon');
+    const fillEl = row.querySelector('.progress-fill');
+    const nameEl = row.querySelector('.upload-row-name');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload?token=' + encodeURIComponent(TOKEN));
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        fillEl.style.width = pct + '%';
+        statusEl.textContent = pct + '%';
+      }
+    };
+    xhr.onload = async function() {
+      pending--;
+      if (xhr.status === 200) {
+        let savedName = file.name;
+        let statusText = '完成';
+        let resp = {};
+        try { resp = JSON.parse(xhr.responseText); } catch (_e) { /* keep original name */ }
+        if (resp.ok) {
+          if (resp.duplicates && resp.duplicates.length > 0) {
+            // Identical content already shared — nothing was written
+            statusText = '已存在';
+            savedName = resp.duplicates[0].name || file.name;
+            await showAlert('「' + resp.duplicates.map(d => d.name).join('、') + '」已上传过（内容相同），已跳过。', '已上传');
+          } else if (resp.pending && resp.pending.length > 0) {
+            // Same name, different content — let the user decide
+            const result = await resolvePendingUploads(resp.pending);
+            if (result.savedName) savedName = result.savedName;
+            if (result.skipped) statusText = '已跳过';
+          } else if (resp.files && resp.files.length > 0) {
+            savedName = resp.files[0].name;
+          }
+        }
+        iconEl.className = 'upload-row-icon done';
+        iconEl.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+        fillEl.style.width = '100%';
+        fillEl.classList.add('done');
+        statusEl.textContent = statusText;
+        statusEl.classList.add('done');
+        nameEl.textContent = savedName;
+      } else {
+        markUploadError(iconEl, fillEl, statusEl, xhr.status === 413 ? '文件过大' : (xhr.status === 403 ? '无权限' : '失败'));
+      }
+      if (pending === 0) finishUploadBatch();
+    };
+    xhr.onerror = function() {
+      pending--;
+      markUploadError(iconEl, fillEl, statusEl, '网络错误');
+      if (pending === 0) finishUploadBatch();
+    };
+    xhr.send(buildFormData(file));
   });
+}
+
+// Walk pending upload conflicts one by one: the user picks overwrite /
+// rename / skip for each, then the server applies the decision on the
+// already-buffered data (no re-upload needed).
+async function resolvePendingUploads(pendingList) {
+  let savedName = '';
+  let skipped = false;
+  for (const p of pendingList) {
+    let action = null;
+    if (p.canOverwrite) {
+      action = await openDialog({
+        title: '同名文件已存在',
+        message: '「' + p.name + '」已存在同名文件，且内容不同。请选择处理方式。',
+        buttons: [
+          { text: '重命名', value: 'rename', primary: true },
+          { text: '覆盖', value: 'overwrite', danger: true },
+          { text: '跳过', value: 'skip' }
+        ]
+      });
+    } else {
+      action = await openDialog({
+        title: '同名文件已存在',
+        message: '「' + p.name + '」已存在同名文件（主机共享或他人上传），不可覆盖。请选择处理方式。',
+        buttons: [
+          { text: '重命名', value: 'rename', primary: true },
+          { text: '跳过', value: 'skip' }
+        ]
+      });
+    }
+    if (!action || action === 'skip') { skipped = true; continue; }
+    try {
+      const res = await fetch('/api/upload-resolve?token=' + encodeURIComponent(TOKEN), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, action: action })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok && data.saved) savedName = data.saved.name;
+      else showToast('处理失败：' + (data.error || ('HTTP ' + res.status)));
+    } catch (_e) {
+      showToast('处理失败：网络错误');
+    }
+  }
+  return { savedName: savedName, skipped: skipped };
+}
+
+function buildFormData(file) {
+  const fd = new FormData();
+  // Safari/legacy fallback: plain filename; modern browsers handle UTF-8 natively
+  if (file.name !== undefined) {
+    try {
+      fd.append('file', file, file.name);
+    } catch (_e) {
+      fd.append('file', file);
+    }
+  }
+  return fd;
+}
+
+function markUploadError(iconEl, fillEl, statusEl, message) {
+  iconEl.className = 'upload-row-icon error';
+  iconEl.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  fillEl.classList.add('error');
+  statusEl.textContent = message;
+  statusEl.classList.add('error');
+}
+
+function finishUploadBatch() {
+  showToast('上传完成');
+  loadFileList();
+  // Auto-dismiss the panel after a pause if everything succeeded
+  const hasError = document.querySelector('.upload-row-icon.error');
+  if (!hasError) {
+    setTimeout(() => {
+      document.getElementById('uploadPanel').classList.remove('show');
+      document.getElementById('uploadPanelBody').innerHTML = '';
+    }, 3000);
+  }
 }
 
 // ===== Start =====

@@ -13,6 +13,10 @@ export interface SharedItem {
   enabled: boolean
   children?: SharedItem[]
   fileCount?: number
+  origin?: { type: 'upload'; ip: string; time: string }
+  hash?: string
+  hashSize?: number
+  hashMtime?: number
 }
 
 export interface ServerConfig {
@@ -28,10 +32,17 @@ export interface ScanResult {
 }
 
 export interface DownloadLog {
+  type?: 'download' | 'upload'
   ip: string
   filePath: string
   fileName: string
+  size?: number
   timestamp: string
+}
+
+export interface StartServerResult {
+  ok: boolean
+  error?: string
 }
 
 export interface TextShareResult {

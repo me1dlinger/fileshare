@@ -24,6 +24,9 @@ const confirmFileCount = ref(0)
 const pendingPaths = ref<string[]>([])
 const copyFeedback = ref(false)
 const copiedItemId = ref('')
+const portInput = ref('23456')
+const portError = ref('')
+const pickingPort = ref(false)
 
 // QR code
 const mainQrSvg = ref('')
@@ -52,6 +55,9 @@ const toastMsg = ref('')
 const toastShow = ref(false)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
+// Poll the share list so uploads from web clients show up live
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
 function showToast(msg: string) {
   toastMsg.value = msg
   toastShow.value = true
@@ -65,12 +71,21 @@ onMounted(() => {
   handleEnterAction()
   tryAutoStart()
   generateMainQr()
+  pollTimer = setInterval(pollShareList, 3000)
 })
+
+function pollShareList() {
+  const latest = window.services.getShareList()
+  if (JSON.stringify(latest) !== JSON.stringify(shareList.value)) {
+    shareList.value = latest
+  }
+}
 
 function loadData() {
   shareList.value = window.services.getShareList()
   networkInterfaces.value = window.services.getNetworkInterfaces()
   serverConfig.value = window.services.getServerStatus()
+  portInput.value = String(serverConfig.value.port)
   if (networkInterfaces.value.length > 0) {
     const match = networkInterfaces.value.find(n => n.ip === serverConfig.value.ip)
     if (match) selectedNic.value = match
@@ -78,10 +93,11 @@ function loadData() {
   }
 }
 
-function tryAutoStart() {
+async function tryAutoStart() {
   if (!serverConfig.value.running && selectedNic.value && serverConfig.value.token) {
-    window.services.startServer(serverConfig.value.port, selectedNic.value.ip)
+    const result = await window.services.startServer(serverConfig.value.port, selectedNic.value.ip)
     serverConfig.value = window.services.getServerStatus()
+    if (!result.ok) portError.value = result.error || '启动失败'
     generateMainQr()
   }
 }
@@ -201,10 +217,17 @@ function handleRemove(itemId: string) {
 }
 
 // ---- Server control ----
-function handleStartServer() {
+async function handleStartServer() {
   if (!selectedNic.value) { showToast('请先选择网卡'); return }
-  window.services.startServer(serverConfig.value.port, selectedNic.value.ip)
+  portError.value = ''
+  const port = normalizePort(portInput.value)
+  const result = await window.services.startServer(port, selectedNic.value.ip)
   serverConfig.value = window.services.getServerStatus()
+  portInput.value = String(serverConfig.value.port)
+  if (!result.ok) {
+    portError.value = result.error || '启动失败'
+    showToast(portError.value)
+  }
   generateMainQr()
 }
 
@@ -212,13 +235,54 @@ function handleStopServer() {
   window.services.stopServer()
   serverConfig.value = window.services.getServerStatus()
   mainQrSvg.value = ''
+  portError.value = ''
 }
 
-function handleNicChange(nic: NetworkInterface) {
-  selectedNic.value = nic
-  window.services.startServer(serverConfig.value.port, nic.ip)
+function normalizePort(raw: string): number {
+  const p = parseInt(raw, 10)
+  if (!Number.isFinite(p) || p < 1 || p > 65535) return serverConfig.value.port
+  return p
+}
+
+function handlePortChange() {
+  portError.value = ''
+  if (serverConfig.value.running) {
+    portInput.value = String(serverConfig.value.port)
+    return
+  }
+  const port = normalizePort(portInput.value)
+  window.services.setPort(port)
   serverConfig.value = window.services.getServerStatus()
-  generateMainQr()
+}
+
+async function handlePickPort() {
+  if (serverConfig.value.running || !selectedNic.value) return
+  pickingPort.value = true
+  const freePort = await window.services.getFreePort(selectedNic.value.ip)
+  pickingPort.value = false
+  if (freePort && freePort > 0) {
+    portInput.value = String(freePort)
+    window.services.setPort(freePort)
+    serverConfig.value = window.services.getServerStatus()
+    showToast('已选择空闲端口 ' + freePort)
+  } else {
+    showToast('未找到可用端口')
+  }
+}
+
+async function handleNicChange(nic: NetworkInterface) {
+  selectedNic.value = nic
+  portError.value = ''
+  if (serverConfig.value.running) {
+    // Restart on the new interface only when the server is already running
+    const result = await window.services.startServer(serverConfig.value.port, nic.ip)
+    serverConfig.value = window.services.getServerStatus()
+    if (!result.ok) {
+      portError.value = result.error || '启动失败'
+      showToast(portError.value)
+    }
+    generateMainQr()
+  }
 }
 
 // ---- Token ----
@@ -244,6 +308,39 @@ function clearLogs() {
 const shareUrl = computed(() => {
   if (!serverConfig.value.running || !selectedNic.value) return ''
   return `http://${selectedNic.value.ip}:${serverConfig.value.port}/?token=${serverConfig.value.token}`
+})
+
+// ---- Grouped view: host shares vs per-IP client uploads ----
+function countGroupFiles(items: SharedItem[]): number {
+  let n = 0
+  for (const item of items) {
+    if (!item.isDirectory) n++
+    if (item.children && item.children.length > 0) n += countGroupFiles(item.children)
+  }
+  return n
+}
+
+const shareGroups = computed(() => {
+  const host: SharedItem[] = []
+  const byIp: Record<string, SharedItem[]> = {}
+  for (const item of shareList.value) {
+    if (item.origin && item.origin.type === 'upload') {
+      const ip = item.origin.ip || '未知来源'
+      if (!byIp[ip]) byIp[ip] = []
+      byIp[ip].push(item)
+    } else {
+      host.push(item)
+    }
+  }
+  const uploadSections = Object.entries(byIp)
+    .map(([ip, items]) => ({
+      ip,
+      items: [...items].sort((a, b) =>
+        ((b.origin?.time) || '').localeCompare((a.origin?.time) || ''))
+    }))
+    .sort((a, b) =>
+      ((b.items[0]?.origin?.time) || '').localeCompare((a.items[0]?.origin?.time) || ''))
+  return { host, uploadSections }
 })
 
 function handleCopyUrl() {
@@ -409,6 +506,22 @@ function handleShareText() {
           添加文件夹
         </button>
         <NetworkSelector :interfaces="networkInterfaces" :selected="selectedNic" @change="handleNicChange" />
+        <div class="port-config" :class="{ error: !!portError }" :title="portError">
+          <span class="port-label">端口</span>
+          <input
+            class="port-input"
+            type="number"
+            min="1"
+            max="65535"
+            v-model="portInput"
+            :disabled="serverConfig.running"
+            @change="handlePortChange"
+          />
+          <button v-if="!serverConfig.running" class="port-auto-btn" :disabled="pickingPort" @click="handlePickPort" title="自动选择空闲端口">
+            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+        <span v-if="portError" class="port-error-text">{{ portError }}</span>
       </div>
       <div class="toolbar-right">
         <button v-if="!serverConfig.running" class="btn btn-success" @click="handleStartServer">
@@ -421,7 +534,7 @@ function handleShareText() {
         </button>
         <span class="status-dot" :class="{ running: serverConfig.running }"></span>
         <span class="status-text">{{ serverConfig.running ? '运行中' : '已停止' }}</span>
-        <button v-if="serverConfig.running" class="btn btn-sm" @click="openLogs" title="下载日志">
+        <button class="btn btn-sm" @click="openLogs" title="下载日志">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         </button>
         <button class="btn btn-sm" @click="openWhitelist" title="IP 白名单">
@@ -467,19 +580,50 @@ function handleShareText() {
       </button>
     </div>
 
-    <!-- File Tree -->
+    <!-- File Tree (grouped: host shares vs per-IP client uploads) -->
     <div class="share-body">
-      <FileTree
-        v-if="shareList.length > 0"
-        :items="shareList"
-        :server-running="serverConfig.running"
-        :share-url="shareUrl"
-        :copied-item-id="copiedItemId"
-        @toggle="handleToggle"
-        @remove="handleRemove"
-        @show-qr="showItemQr"
-        @copy-url="handleCopyItemUrl"
-      />
+      <template v-if="shareList.length > 0">
+        <div v-if="shareGroups.host.length > 0" class="share-section">
+          <div class="share-section-header">
+            <span class="share-section-label">
+              <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.5"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.5l-1.5-2H5a2 2 0 00-2 2z"/></svg>
+              主机共享
+            </span>
+            <span class="share-section-count">{{ countGroupFiles(shareGroups.host) }} 个文件</span>
+          </div>
+          <FileTree
+            :items="shareGroups.host"
+            :server-running="serverConfig.running"
+            :share-url="shareUrl"
+            :copied-item-id="copiedItemId"
+            @toggle="handleToggle"
+            @remove="handleRemove"
+            @show-qr="showItemQr"
+            @copy-url="handleCopyItemUrl"
+          />
+        </div>
+
+        <div v-for="section in shareGroups.uploadSections" :key="section.ip" class="share-section">
+          <div class="share-section-header">
+            <span class="share-section-label">
+              <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              客户端上传
+            </span>
+            <span class="share-section-ip">{{ section.ip }}</span>
+            <span class="share-section-count">{{ countGroupFiles(section.items) }} 个文件</span>
+          </div>
+          <FileTree
+            :items="section.items"
+            :server-running="serverConfig.running"
+            :share-url="shareUrl"
+            :copied-item-id="copiedItemId"
+            @toggle="handleToggle"
+            @remove="handleRemove"
+            @show-qr="showItemQr"
+            @copy-url="handleCopyItemUrl"
+          />
+        </div>
+      </template>
       <div v-else class="empty-state">
         <div class="empty-icon">
           <svg viewBox="0 0 24 24" width="56" height="56" stroke="currentColor" fill="none" stroke-width="1" opacity="0.2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6.5l-1.5-2H5a2 2 0 00-2 2z"/></svg>
@@ -536,11 +680,14 @@ function handleShareText() {
         </div>
         <div class="log-body">
           <table v-if="downloadLogs.length > 0" class="log-table">
-            <thead><tr><th>时间</th><th>IP</th><th>文件</th></tr></thead>
+            <thead><tr><th>时间</th><th>IP</th><th>类型</th><th>文件</th></tr></thead>
             <tbody>
               <tr v-for="(log, idx) in downloadLogs.slice().reverse()" :key="idx">
                 <td class="log-time">{{ formatTime(log.timestamp) }}</td>
                 <td class="log-ip">{{ log.ip }}</td>
+                <td class="log-type">
+                  <span class="log-type-badge" :class="log.type === 'upload' ? 'upload' : 'download'">{{ log.type === 'upload' ? '上传' : '下载' }}</span>
+                </td>
                 <td class="log-file" :title="log.filePath">{{ log.fileName }}</td>
               </tr>
             </tbody>
@@ -586,14 +733,21 @@ function handleShareText() {
 
 <style scoped>
 .share-app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
-.share-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); gap: 10px; flex-shrink: 0; flex-wrap: wrap; }
-.toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 6px; }
+.share-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); gap: 10px; flex-shrink: 0; flex-wrap: nowrap; min-width: 0; }
+.toolbar-left { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.toolbar-right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .share-info { padding: 8px 14px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .info-row { display: flex; align-items: center; gap: 6px; }
 .info-label { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; }
 .info-value { font-size: 11px; color: var(--primary); background: var(--bg-tertiary); padding: 2px 7px; border-radius: 4px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .info-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .share-body { flex: 1; overflow-y: auto; padding: 6px 0; }
+.share-section { margin-bottom: 2px; }
+.share-section-header { display: flex; align-items: center; gap: 8px; margin: 10px 12px 2px; padding: 7px 10px; font-size: 12px; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+.share-section-label { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.share-section-label svg { width: 14px; height: 14px; stroke: var(--primary); flex-shrink: 0; }
+.share-section-ip { font-family: var(--font-mono); color: var(--primary); background: var(--primary-light); padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+.share-section-count { font-weight: 400; color: var(--text-tertiary); margin-left: auto; font-size: 11px; flex-shrink: 0; }
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); gap: 10px; padding: 40px 20px; }
 .empty-icon { margin-bottom: 8px; }
 .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin: 0; }
@@ -605,7 +759,7 @@ function handleShareText() {
 .status-text { font-size: 11px; color: var(--text-secondary); }
 
 /* Buttons */
-.btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; white-space: nowrap; flex-shrink: 0; }
 .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-lg { padding: 10px 28px; font-size: 14px; border-radius: 8px; }
@@ -661,6 +815,26 @@ function handleShareText() {
 .whitelist-list { display: flex; flex-direction: column; gap: 4px; }
 .whitelist-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-secondary); border-radius: 6px; }
 .whitelist-ip { font-family: monospace; font-size: 13px; color: var(--text); }
+
+/* Port config */
+.port-config { display: flex; align-items: center; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; transition: border-color 0.15s; flex-shrink: 0; }
+.port-config.error { border-color: var(--danger); }
+.port-label { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; }
+.port-input { width: 56px; border: none; background: transparent; color: var(--text); font-size: 12px; font-family: monospace; outline: none; padding: 3px 2px; }
+.port-input:disabled { color: var(--text-tertiary); cursor: not-allowed; }
+.port-input::-webkit-inner-spin-button { display: none; }
+.port-auto-btn { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; background: none; color: var(--text-secondary); cursor: pointer; border-radius: 4px; flex-shrink: 0; padding: 0; }
+.port-auto-btn:hover { background: var(--bg-tertiary); color: var(--primary); }
+.port-auto-btn:disabled { color: var(--text-tertiary); cursor: wait; }
+.port-error-text { font-size: 11px; color: var(--danger); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; flex-shrink: 1; }
+
+/* Log type badge */
+.log-type { width: 60px; }
+.log-type-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 8px; line-height: 16px; }
+.log-type-badge.download { background: #dbeafe; color: #2563eb; }
+.log-type-badge.upload { background: #dcfce7; color: #16a34a; }
+[data-theme="dark"] .log-type-badge.download { background: #1e3a5f; color: #60a5fa; }
+[data-theme="dark"] .log-type-badge.upload { background: #14532d; color: #4ade80; }
 
 /* Toast */
 .toast {
