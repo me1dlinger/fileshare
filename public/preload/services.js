@@ -1504,7 +1504,7 @@ window.services = {
     if (!text || !text.trim()) return null
     const now = new Date()
     const pad = (n) => String(n).padStart(2, '0')
-    const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
     const fileName = `share_${ts}.txt`
     const filePath = path.join(window.ztools.getPath('downloads'), fileName)
     try {
@@ -1536,7 +1536,7 @@ window.services = {
       if (stat.isDirectory()) return null
       const mime = getMimeType(filePath)
       const ext = path.extname(filePath).toLowerCase()
-      const textExts = ['.txt','.log','.csv','.json','.xml','.yml','.yaml','.toml','.ini','.cfg','.conf','.env','.properties','.md','.markdown','.mdown','.mkd','.js','.mjs','.cjs','.ts','.tsx','.jsx','.py','.java','.c','.cpp','.h','.hpp','.rs','.go','.rb','.php','.swift','.kt','.kts','.scala','.dart','.lua','.r','.sql','.sh','.bash','.zsh','.bat','.cmd','.ps1','.html','.htm','.css','.scss','.less','.vue','.svelte','.svg']
+      const textExts = ['.txt', '.log', '.csv', '.json', '.xml', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.env', '.properties', '.md', '.markdown', '.mdown', '.mkd', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp', '.rs', '.go', '.rb', '.php', '.swift', '.kt', '.kts', '.scala', '.dart', '.lua', '.r', '.sql', '.sh', '.bash', '.zsh', '.bat', '.cmd', '.ps1', '.html', '.htm', '.css', '.scss', '.less', '.vue', '.svelte', '.svg']
       const isText = textExts.includes(ext) || mime.startsWith('text/')
       if (isText && stat.size <= 2 * 1024 * 1024) {
         const data = fs.readFileSync(filePath, 'utf-8')
