@@ -55,6 +55,7 @@ interface Services {
   setPort: (port: number) => boolean
   getFreePort: (ip: string) => Promise<number>
   getServerStatus: () => ServerConfig
+  shouldAutoStart: () => boolean
   regenerateToken: () => string
   addShares: (paths: string[]) => { added: SharedItem[]; skipped: string[] }
   removeShare: (id: string) => boolean
@@ -70,6 +71,8 @@ interface Services {
   addWhitelist: (ip: string) => boolean
   removeWhitelist: (ip: string) => boolean
   shareText: (text: string) => SharedItem | null
+  readFile: (filePath: string) => { type: 'text' | 'base64' | 'too-large'; data: string; mime: string } | null
+  getFileMimeType: (filePath: string) => string
 }
 
 declare global {

@@ -15,6 +15,7 @@ const emit = defineEmits<{
   remove: []
   showQr: [item: SharedItem]
   copyUrl: [item: SharedItem]
+  preview: [item: SharedItem]
 }>()
 
 const expanded = ref(true)
@@ -39,6 +40,14 @@ function getFileIcon(): string {
   if (['js','ts','jsx','tsx','py','java','c','cpp','rs','go','rb','php','swift','kt','scala','dart','lua','r','sql','sh','bat','html','css','scss','less','vue','json','xml','yml','yaml'].includes(ext)) return 'code'
   if (['md','markdown'].includes(ext)) return 'markdown'
   return 'file'
+}
+
+const PREVIEWABLE_EXTS = ['jpg','jpeg','png','gif','svg','webp','bmp','ico','mp3','wav','ogg','flac','aac','m4a','mp4','webm','mkv','avi','mov','flv','txt','log','csv','json','xml','yml','yaml','toml','ini','cfg','conf','env','md','markdown','js','mjs','cjs','ts','tsx','jsx','py','java','c','cpp','h','hpp','rs','go','rb','php','swift','kt','kts','scala','dart','lua','r','sql','sh','bash','zsh','bat','cmd','ps1','html','htm','css','scss','less','vue','svelte']
+
+function isPreviewable(): boolean {
+  if (props.item.isDirectory) return false
+  const ext = (props.item.name || '').split('.').pop()?.toLowerCase() || ''
+  return PREVIEWABLE_EXTS.includes(ext)
 }
 </script>
 
@@ -65,6 +74,11 @@ function getFileIcon(): string {
     <!-- Open in explorer -->
     <button class="action-btn" title="在资源管理器中打开" @click.stop="openInExplorer">
       <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><rect x="2" y="3" width="20" height="16" rx="2"/><path d="M8 21h8"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    </button>
+
+    <!-- Preview -->
+    <button v-if="isPreviewable()" class="action-btn" title="预览" @click.stop="emit('preview', item)">
+      <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
 
     <!-- File count -->

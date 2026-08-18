@@ -46,6 +46,208 @@ const whitelist = ref<string[]>([])
 const newWhitelistIp = ref('')
 const showWhitelist = ref(false)
 
+// File Preview
+const showPreview = ref(false)
+const previewItem = ref<SharedItem | null>(null)
+const previewContent = ref('')
+const previewType = ref<'image' | 'audio' | 'video' | 'text' | 'markdown' | 'code' | 'too-large' | 'error'>('error')
+const previewLoading = ref(false)
+const previewExt = ref('')
+const previewModalRef = ref<HTMLElement | null>(null)
+
+// Fullscreen image viewer (within plugin)
+const showImgViewer = ref(false)
+const imgViewerScale = ref(1)
+const imgViewerX = ref(0)
+const imgViewerY = ref(0)
+let imgViewerDragging = false
+let imgViewerLastX = 0
+let imgViewerLastY = 0
+
+const PREVIEW_IMG_EXTS = ['jpg','jpeg','png','gif','svg','webp','bmp','ico']
+const PREVIEW_AUDIO_EXTS = ['mp3','wav','ogg','flac','aac','m4a']
+const PREVIEW_VIDEO_EXTS = ['mp4','webm','mkv','avi','mov','flv']
+const PREVIEW_MD_EXTS = ['md','markdown','mdown','mkd']
+const PREVIEW_CODE_EXTS = ['js','mjs','cjs','ts','tsx','jsx','py','java','c','cpp','h','hpp','rs','go','rb','php','swift','kt','kts','scala','dart','lua','r','sql','sh','bash','zsh','bat','cmd','ps1','html','htm','css','scss','less','vue','svelte']
+const PREVIEW_TEXT_EXTS = ['txt','log','csv','json','xml','yml','yaml','toml','ini','cfg','conf','env','properties']
+
+function getPreviewCategory(ext: string): 'image' | 'audio' | 'video' | 'text' | 'markdown' | 'code' | null {
+  if (PREVIEW_IMG_EXTS.includes(ext)) return 'image'
+  if (PREVIEW_AUDIO_EXTS.includes(ext)) return 'audio'
+  if (PREVIEW_VIDEO_EXTS.includes(ext)) return 'video'
+  if (PREVIEW_MD_EXTS.includes(ext)) return 'markdown'
+  if (PREVIEW_CODE_EXTS.includes(ext)) return 'code'
+  if (PREVIEW_TEXT_EXTS.includes(ext)) return 'text'
+  return null
+}
+
+function handlePreview(item: SharedItem) {
+  if (item.isDirectory) return
+  const ext = (item.name || '').split('.').pop()?.toLowerCase() || ''
+  const cat = getPreviewCategory(ext)
+  if (!cat) return
+
+  previewItem.value = item
+  previewExt.value = ext
+  previewLoading.value = true
+  showPreview.value = true
+
+  const result = window.services.readFile(item.path)
+  previewLoading.value = false
+
+  if (!result) {
+    previewType.value = 'error'
+    return
+  }
+  if (result.type === 'too-large') {
+    previewType.value = 'too-large'
+    return
+  }
+
+  if (cat === 'image') {
+    previewType.value = 'image'
+    previewContent.value = result.type === 'base64' ? result.data : ''
+  } else if (cat === 'audio') {
+    previewType.value = 'audio'
+    previewContent.value = result.type === 'base64' ? result.data : ''
+  } else if (cat === 'video') {
+    previewType.value = 'video'
+    previewContent.value = result.type === 'base64' ? result.data : ''
+  } else {
+    // text / code / markdown
+    previewType.value = cat
+    previewContent.value = result.type === 'text' ? result.data : ''
+  }
+}
+
+function closePreview() {
+  showPreview.value = false
+  showImgViewer.value = false
+  previewItem.value = null
+  previewContent.value = ''
+}
+
+// Simple HTML escape for text preview
+function escHtml(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+// Simple code highlight (same as Web UI)
+function highlightCode(code: string, ext: string): string {
+  let html = escHtml(code)
+  // Strings
+  html = html.replace(/(['"`])((?:\\.|(?!\1).)*?)\1/g, '<span style="color:#16a34a">$1$2$1</span>')
+  // Comments
+  if (['js','ts','jsx','tsx','java','c','cpp','go','rs','swift','kt','dart','scss','less','css'].includes(ext)) {
+    html = html.replace(/(\/\/[^\n]*)/g, '<span style="color:#94a3b8">$1</span>')
+    html = html.replace(/(\/\*[\s\S]*?\*\/)/g, '<span style="color:#94a3b8">$1</span>')
+  }
+  if (['py','rb','sh','bash','zsh','yaml','yml','toml','ini','cfg','conf','env','properties'].includes(ext)) {
+    html = html.replace(/(#[^\n]*)/g, '<span style="color:#94a3b8">$1</span>')
+  }
+  // Keywords
+  const kwMap: Record<string, string[]> = {
+    js: ['const','let','var','function','return','if','else','for','while','class','import','export','from','new','await','async','try','catch','throw','typeof','instanceof','break','continue','switch','case','default','do','in','of','void','delete'],
+    ts: ['const','let','var','function','return','if','else','for','while','class','import','export','from','new','await','async','try','catch','throw','typeof','instanceof','break','continue','switch','case','default','do','in','of','void','delete','interface','type','enum','public','private','protected','readonly','extends','implements','as','namespace','declare','abstract'],
+    py: ['def','class','return','if','elif','else','for','while','import','from','as','try','except','finally','with','raise','lambda','yield','global','nonlocal','pass','break','continue','assert','del','in','is','not','and','or','None','True','False'],
+  }
+  const kws = kwMap[ext] || kwMap[js]
+  const kwRe = new RegExp('\\b(' + kws.join('|') + ')\\b','g')
+  html = html.replace(kwRe, '<span style="color:#2563eb">$1</span>')
+  // Numbers
+  html = html.replace(/\b(\d+\.?\d*)\b/g, '<span style="color:#ea580c">$1</span>')
+  return html
+}
+
+// Simple Markdown parser (same as Web UI)
+function parseMarkdown(src: string): string {
+  let html = src.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+    const h = lang ? highlightCode(code.trim(), lang) : escHtml(code.trim())
+    return '<pre><code>' + h + '</code></pre>'
+  })
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+  html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>')
+  html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>')
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>')
+  html = html.replace(/^(---|\*\*\*|___)\s*$/gm, '<hr>')
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+  html = html.replace(/<\/blockquote>\n<blockquote>/g, '<br>')
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+  const lines = html.split('\n')
+  const result: string[] = []
+  let inList = false
+  for (const line of lines) {
+    if (line.startsWith('<li>')) {
+      if (!inList) { result.push('<ul>'); inList = true }
+      result.push(line)
+    } else {
+      if (inList) { result.push('</ul>'); inList = false }
+      result.push(line)
+    }
+  }
+  if (inList) result.push('</ul>')
+  return result.join('\n')
+}
+
+// Fullscreen image viewer handlers
+function openImgViewer() {
+  if (previewType.value !== 'image' || !previewContent.value) return
+  imgViewerScale.value = 1
+  imgViewerX.value = 0
+  imgViewerY.value = 0
+  showImgViewer.value = true
+}
+
+function closeImgViewer() {
+  showImgViewer.value = false
+}
+
+function onImgViewerWheel(e: WheelEvent) {
+  e.preventDefault()
+  const delta = e.deltaY > 0 ? 0.9 : 1.1
+  imgViewerScale.value = Math.max(0.1, Math.min(20, imgViewerScale.value * delta))
+}
+
+function onImgViewerMouseDown(e: MouseEvent) {
+  imgViewerDragging = true
+  imgViewerLastX = e.clientX
+  imgViewerLastY = e.clientY
+}
+
+function onImgViewerMouseMove(e: MouseEvent) {
+  if (!imgViewerDragging) return
+  imgViewerX.value += e.clientX - imgViewerLastX
+  imgViewerY.value += e.clientY - imgViewerLastY
+  imgViewerLastX = e.clientX
+  imgViewerLastY = e.clientY
+}
+
+function onImgViewerMouseUp() {
+  imgViewerDragging = false
+}
+
+function onImgViewerDblClick() {
+  imgViewerScale.value = 1
+  imgViewerX.value = 0
+  imgViewerY.value = 0
+}
+
+function onPreviewKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (showImgViewer.value) closeImgViewer()
+    else closePreview()
+  }
+}
+
 // Text sharing
 const shareTextInput = ref('')
 const sharingText = ref(false)
@@ -72,6 +274,14 @@ onMounted(() => {
   tryAutoStart()
   generateMainQr()
   pollTimer = setInterval(pollShareList, 3000)
+  window.addEventListener('keydown', onPreviewKeydown)
+})
+
+// Auto-focus preview modal when opened so keyboard events work
+watch(showPreview, (val) => {
+  if (val) {
+    setTimeout(() => previewModalRef.value?.focus(), 50)
+  }
 })
 
 function pollShareList() {
@@ -94,6 +304,7 @@ function loadData() {
 }
 
 async function tryAutoStart() {
+  if (!window.services.shouldAutoStart()) return
   if (!serverConfig.value.running && selectedNic.value && serverConfig.value.token) {
     const result = await window.services.startServer(serverConfig.value.port, selectedNic.value.ip)
     serverConfig.value = window.services.getServerStatus()
@@ -600,6 +811,7 @@ function handleShareText() {
             @remove="handleRemove"
             @show-qr="showItemQr"
             @copy-url="handleCopyItemUrl"
+            @preview="handlePreview"
           />
         </div>
 
@@ -621,6 +833,7 @@ function handleShareText() {
             @remove="handleRemove"
             @show-qr="showItemQr"
             @copy-url="handleCopyItemUrl"
+            @preview="handlePreview"
           />
         </div>
       </template>
@@ -726,6 +939,77 @@ function handleShareText() {
           <div v-else class="log-empty">白名单为空，所有访问均需 Token</div>
         </div>
       </div>
+    </div>
+
+    <!-- File Preview Modal -->
+    <div v-if="showPreview" class="modal-overlay" @click.self="closePreview" @keydown="onPreviewKeydown" tabindex="0" ref="previewModalRef">
+      <div class="preview-modal">
+        <div class="preview-header">
+          <span class="preview-title">{{ previewItem?.name || '预览' }}</span>
+          <span class="preview-ext-badge">{{ previewExt.toUpperCase() }}</span>
+          <div style="flex:1"></div>
+          <button class="modal-close-btn" @click="closePreview">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="preview-body">
+          <div v-if="previewLoading" class="preview-loading">加载中…</div>
+          <template v-else>
+            <!-- Image -->
+            <div v-if="previewType === 'image' && previewContent" class="preview-image-wrap">
+              <img :src="previewContent" class="preview-img" @click="openImgViewer" title="点击全屏查看" />
+            </div>
+            <!-- Audio -->
+            <div v-else-if="previewType === 'audio' && previewContent" class="preview-media-wrap">
+              <audio :src="previewContent" controls class="preview-audio"></audio>
+            </div>
+            <!-- Video -->
+            <div v-else-if="previewType === 'video' && previewContent" class="preview-media-wrap">
+              <video :src="previewContent" controls class="preview-video"></video>
+            </div>
+            <!-- Markdown -->
+            <div v-else-if="previewType === 'markdown'" class="preview-text-wrap">
+              <div class="preview-md" v-html="parseMarkdown(previewContent)"></div>
+            </div>
+            <!-- Code -->
+            <div v-else-if="previewType === 'code'" class="preview-text-wrap">
+              <pre class="preview-code"><code v-html="highlightCode(previewContent, previewExt)"></code></pre>
+            </div>
+            <!-- Text -->
+            <div v-else-if="previewType === 'text'" class="preview-text-wrap">
+              <pre class="preview-text">{{ previewContent }}</pre>
+            </div>
+            <!-- Too large -->
+            <div v-else-if="previewType === 'too-large'" class="preview-error">
+              <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1" opacity="0.3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <p>文件过大，暂不支持预览</p>
+              <p class="preview-error-sub">文本文件上限 2MB，二进制文件上限 20MB</p>
+            </div>
+            <!-- Error -->
+            <div v-else class="preview-error">
+              <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1" opacity="0.3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <p>无法预览此文件</p>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Image Viewer -->
+    <div v-if="showImgViewer" class="img-viewer-overlay" @click.self="closeImgViewer" @wheel.prevent="onImgViewerWheel" @mousedown="onImgViewerMouseDown" @mousemove="onImgViewerMouseMove" @mouseup="onImgViewerMouseUp" @mouseleave="onImgViewerMouseUp" @dblclick="onImgViewerDblClick">
+      <img
+        :src="previewContent"
+        class="img-viewer-img"
+        :style="{ transform: `translate(${imgViewerX}px, ${imgViewerY}px) scale(${imgViewerScale})` }"
+        draggable="false"
+      />
+      <div class="img-viewer-info">
+        <span>{{ Math.round(imgViewerScale * 100) }}%</span>
+        <span class="img-viewer-hint">滚轮缩放 · 拖拽移动 · 双击重置 · ESC 退出</span>
+      </div>
+      <button class="img-viewer-close" @click="closeImgViewer">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
 
   </div>
@@ -846,4 +1130,50 @@ function handleShareText() {
 .toast-fade-enter-active { transition: all 0.2s ease-out; }
 .toast-fade-leave-active { transition: all 0.25s ease-in; }
 .toast-fade-enter-from, .toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+
+/* File Preview Modal */
+.preview-modal { background: var(--bg); border-radius: 12px; width: 90%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.2); overflow: hidden; }
+.preview-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.preview-title { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px; }
+.preview-ext-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--bg-tertiary); color: var(--text-secondary); white-space: nowrap; }
+.preview-body { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 200px; }
+.preview-loading { color: var(--text-tertiary); font-size: 13px; }
+.preview-image-wrap { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.preview-img { max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 4px; cursor: zoom-in; transition: opacity 0.15s; }
+.preview-img:hover { opacity: 0.92; }
+.preview-media-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.preview-audio { width: 100%; max-width: 500px; }
+.preview-video { max-width: 100%; max-height: 70vh; border-radius: 4px; }
+.preview-text-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; }
+.preview-text, .preview-code { width: 100%; flex: 1; overflow: auto; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.6; padding: 12px; margin: 0; background: var(--bg-secondary); border-radius: 6px; color: var(--text-primary); white-space: pre-wrap; word-break: break-all; tab-size: 2; }
+.preview-code code { font-family: inherit; }
+.preview-md { width: 100%; overflow: auto; font-size: 13px; line-height: 1.7; color: var(--text-primary); padding: 4px; }
+.preview-md h1 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.4em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+.preview-md h2 { font-size: 1.3em; font-weight: 700; margin: 0.6em 0 0.4em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+.preview-md h3 { font-size: 1.15em; font-weight: 600; margin: 0.5em 0 0.3em; }
+.preview-md h4 { font-size: 1em; font-weight: 600; margin: 0.5em 0 0.3em; }
+.preview-md h5, .preview-md h6 { font-size: 0.9em; font-weight: 600; margin: 0.4em 0 0.3em; }
+.preview-md p { margin: 0.4em 0; }
+.preview-md ul { margin: 0.4em 0; padding-left: 1.5em; }
+.preview-md li { margin: 0.2em 0; }
+.preview-md code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 0.88em; background: var(--bg-tertiary); padding: 1px 4px; border-radius: 3px; }
+.preview-md pre { background: var(--bg-secondary); border-radius: 6px; padding: 10px; overflow: auto; margin: 0.5em 0; }
+.preview-md pre code { background: none; padding: 0; font-size: 12px; }
+.preview-md a { color: #2563eb; text-decoration: none; }
+.preview-md a:hover { text-decoration: underline; }
+.preview-md blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--text-secondary); margin: 0.5em 0; }
+.preview-md img { max-width: 100%; border-radius: 4px; }
+.preview-md hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+.preview-error { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text-tertiary); }
+.preview-error p { font-size: 14px; margin: 0; }
+.preview-error-sub { font-size: 12px !important; color: var(--text-tertiary); }
+
+/* Fullscreen Image Viewer */
+.img-viewer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 300; display: flex; align-items: center; justify-content: center; cursor: grab; user-select: none; }
+.img-viewer-overlay:active { cursor: grabbing; }
+.img-viewer-img { max-width: 90vw; max-height: 90vh; object-fit: contain; transform-origin: center center; transition: transform 0.05s ease-out; pointer-events: none; }
+.img-viewer-info { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; color: rgba(255,255,255,0.7); font-size: 12px; pointer-events: none; }
+.img-viewer-hint { font-size: 11px; opacity: 0.6; }
+.img-viewer-close { position: fixed; top: 16px; right: 16px; width: 36px; height: 36px; border: none; border-radius: 50%; background: rgba(255,255,255,0.15); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.img-viewer-close:hover { background: rgba(255,255,255,0.3); }
 </style>

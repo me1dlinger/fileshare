@@ -15,12 +15,14 @@ const emit = defineEmits<{
   remove: [id: string]
   showQr: [item: SharedItem]
   copyUrl: [item: SharedItem]
+  preview: [item: SharedItem]
 }>()
 
 function onToggle(id: string, enabled: boolean) { emit('toggle', id, enabled) }
 function onRemove(id: string) { emit('remove', id) }
 function onShowQr(item: SharedItem) { emit('showQr', item) }
 function onCopyUrl(item: SharedItem) { emit('copyUrl', item) }
+function onPreview(item: SharedItem) { emit('preview', item) }
 </script>
 
 <template>
@@ -36,6 +38,7 @@ function onCopyUrl(item: SharedItem) { emit('copyUrl', item) }
         @remove="onRemove(item.id)"
         @show-qr="onShowQr(item)"
         @copy-url="onCopyUrl(item)"
+        @preview="onPreview(item)"
       />
       <FileTree
         v-if="item.children && item.children.length > 0"
@@ -48,6 +51,7 @@ function onCopyUrl(item: SharedItem) { emit('copyUrl', item) }
         @remove="onRemove"
         @show-qr="onShowQr"
         @copy-url="onCopyUrl"
+        @preview="onPreview"
       />
     </template>
   </div>

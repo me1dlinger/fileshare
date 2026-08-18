@@ -73,8 +73,7 @@
 
 ### 安装
 
-- ZTools 插件市场搜索 **z-share**，点击安装
-- 下载 GitHub Release 文件，在 ZTools 搜索框完成导入
+- ZTools 插件市场搜索 **文件共享**，点击安装
 
 ### 开发
 

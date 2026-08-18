@@ -89,6 +89,16 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
 .modal-body .empty-hint { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: var(--text3); gap: 8px; }
 .modal-body .empty-hint svg { width: 40px; height: 40px; stroke: var(--text3); fill: none; stroke-width: 1.5; }
 
+/* ===== Fullscreen Image Viewer ===== */
+.img-viewer { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: grab; }
+.img-viewer.dragging { cursor: grabbing; }
+.img-viewer img { max-width: none; max-height: none; user-select: none; -webkit-user-drag: none; pointer-events: none; transform-origin: center center; transition: transform 0.05s linear; }
+.img-viewer-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-size: 12px; pointer-events: none; white-space: nowrap; }
+.img-viewer-close { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 8px; background: rgba(255,255,255,0.1); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; z-index: 1; }
+.img-viewer-close:hover { background: rgba(255,255,255,0.2); }
+.img-viewer-close svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; }
+.img-viewer-zoom { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.6); font-size: 12px; pointer-events: none; }
+
 /* ===== Confirm Dialog (unified custom styling, no native dialogs) ===== */
 .confirm-modal { width: 100%; max-width: 380px; }
 .confirm-body { padding: 26px 24px 6px; text-align: center; }
@@ -336,6 +346,16 @@ button { cursor: pointer; border: none; background: none; font: inherit; color: 
   </div>
 </div>
 
+<!-- Fullscreen Image Viewer -->
+<div class="img-viewer" id="imgViewer" style="display:none">
+  <button class="img-viewer-close" id="imgViewerClose">
+    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <span class="img-viewer-zoom" id="imgViewerZoom"></span>
+  <img id="imgViewerImg" alt="">
+  <span class="img-viewer-hint">滚轮缩放 · 拖拽移动 · ESC 退出</span>
+</div>
+
 <!-- Confirm Dialog -->
 <div class="modal-overlay" id="confirmOverlay" style="display:none">
   <div class="modal confirm-modal">
@@ -383,10 +403,12 @@ function init() {
   });
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-      if (document.getElementById('confirmOverlay').style.display !== 'none') closeDialog(null);
+      if (document.getElementById('imgViewer').style.display !== 'none') closeImgViewer();
+      else if (document.getElementById('confirmOverlay').style.display !== 'none') closeDialog(null);
       else closeModal();
     }
   });
+  initImgViewer();
   // Dialog wiring (overlay click closes like a cancel)
   document.getElementById('confirmOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeDialog(null);
@@ -802,7 +824,8 @@ function openPreview(filePath, fileName, ext) {
 
   // Image
   if (cat === 'image') {
-    body.innerHTML = '<img src="/api/file?path=' + encodeURIComponent(filePath) + '&token=' + TOKEN + '" alt="' + escHtml(fileName) + '" style="max-width:100%;max-height:65vh;display:block;margin:0 auto">';
+    const imgSrc = '/api/file?path=' + encodeURIComponent(filePath) + '&token=' + TOKEN;
+    body.innerHTML = '<img src="' + imgSrc + '" alt="' + escHtml(fileName) + '" style="max-width:100%;max-height:65vh;display:block;margin:0 auto;cursor:zoom-in" onclick="openImgViewer(\'' + imgSrc.replace(/'/g, "\\'") + '\')">';
     return;
   }
   // Audio
@@ -857,6 +880,71 @@ function closeModal() {
   document.getElementById('modalBody').innerHTML = '';
   currentFilePath = null;
   currentRawContent = '';
+}
+
+// ===== Fullscreen Image Viewer =====
+let viewerScale = 1, viewerX = 0, viewerY = 0;
+let viewerDragging = false, viewerLastX = 0, viewerLastY = 0;
+
+function openImgViewer(src) {
+  const viewer = document.getElementById('imgViewer');
+  const img = document.getElementById('imgViewerImg');
+  img.src = src;
+  viewerScale = 1; viewerX = 0; viewerY = 0;
+  updateImgTransform();
+  viewer.style.display = 'flex';
+  document.getElementById('imgViewerZoom').textContent = '100%';
+}
+
+function closeImgViewer() {
+  document.getElementById('imgViewer').style.display = 'none';
+  document.getElementById('imgViewerImg').src = '';
+}
+
+function updateImgTransform() {
+  const img = document.getElementById('imgViewerImg');
+  img.style.transform = 'translate(' + viewerX + 'px,' + viewerY + 'px) scale(' + viewerScale + ')';
+  document.getElementById('imgViewerZoom').textContent = Math.round(viewerScale * 100) + '%';
+}
+
+function initImgViewer() {
+  const viewer = document.getElementById('imgViewer');
+  const img = document.getElementById('imgViewerImg');
+
+  document.getElementById('imgViewerClose').addEventListener('click', closeImgViewer);
+
+  viewer.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    viewerScale = Math.max(0.1, Math.min(20, viewerScale * delta));
+    updateImgTransform();
+  }, { passive: false });
+
+  viewer.addEventListener('mousedown', function(e) {
+    if (e.target === viewer || e.target === img) {
+      viewerDragging = true;
+      viewerLastX = e.clientX; viewerLastY = e.clientY;
+      viewer.classList.add('dragging');
+    }
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!viewerDragging) return;
+    viewerX += e.clientX - viewerLastX;
+    viewerY += e.clientY - viewerLastY;
+    viewerLastX = e.clientX; viewerLastY = e.clientY;
+    updateImgTransform();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (viewerDragging) { viewerDragging = false; viewer.classList.remove('dragging'); }
+  });
+
+  // Double-click to reset
+  viewer.addEventListener('dblclick', function() {
+    viewerScale = 1; viewerX = 0; viewerY = 0;
+    updateImgTransform();
+  });
 }
 
 // ===== Simple Markdown Parser =====

@@ -17,6 +17,10 @@ let serverConfig = {
   token: '',
   running: false
 }
+// Whether the server should auto-start when the plugin UI is opened.
+// Reset to true only when the plugin process is freshly loaded;
+// set to false when the user manually stops the server.
+let autoStartEnabled = true
 let shareItems = []
 let shareIdCounter = 0
 let webUiHtml = ''
@@ -1282,6 +1286,7 @@ window.services = {
           server = srv
           serverConfig.port = srv.address().port
           serverConfig.running = true
+          autoStartEnabled = true
           saveConfig()
           resolve({ ok: true })
         })
@@ -1299,6 +1304,7 @@ window.services = {
       server = null
     }
     serverConfig.running = false
+    autoStartEnabled = false
   },
 
   // Persist a new port while the server is stopped
@@ -1330,6 +1336,12 @@ window.services = {
       token: serverConfig.token,
       running: serverConfig.running
     }
+  },
+
+  // Whether the server should auto-start when the UI is (re)opened.
+  // True on first load; false after the user manually stops the server.
+  shouldAutoStart() {
+    return autoStartEnabled
   },
 
   // ---- Token management ----
@@ -1510,6 +1522,40 @@ window.services = {
     } catch (_e) {
       return null
     }
+  },
+
+  // ---- File Preview ----
+  // Read a file for preview. Returns { type, data, mime } where:
+  //   type: 'text' | 'base64'
+  //   data: string content (text) or base64-encoded string (base64)
+  //   mime: MIME type
+  // For text-like files (<= 2MB), returns text; for images, returns base64 data URL.
+  readFile(filePath) {
+    try {
+      const stat = fs.statSync(filePath)
+      if (stat.isDirectory()) return null
+      const mime = getMimeType(filePath)
+      const ext = path.extname(filePath).toLowerCase()
+      const textExts = ['.txt','.log','.csv','.json','.xml','.yml','.yaml','.toml','.ini','.cfg','.conf','.env','.properties','.md','.markdown','.mdown','.mkd','.js','.mjs','.cjs','.ts','.tsx','.jsx','.py','.java','.c','.cpp','.h','.hpp','.rs','.go','.rb','.php','.swift','.kt','.kts','.scala','.dart','.lua','.r','.sql','.sh','.bash','.zsh','.bat','.cmd','.ps1','.html','.htm','.css','.scss','.less','.vue','.svelte','.svg']
+      const isText = textExts.includes(ext) || mime.startsWith('text/')
+      if (isText && stat.size <= 2 * 1024 * 1024) {
+        const data = fs.readFileSync(filePath, 'utf-8')
+        return { type: 'text', data, mime }
+      }
+      // For images and other files, return base64 data URL
+      if (stat.size <= 20 * 1024 * 1024) {
+        const buf = fs.readFileSync(filePath)
+        return { type: 'base64', data: 'data:' + mime + ';base64,' + buf.toString('base64'), mime }
+      }
+      return { type: 'too-large', data: '', mime }
+    } catch (_e) {
+      return null
+    }
+  },
+
+  // Get file MIME type
+  getFileMimeType(filePath) {
+    return getMimeType(filePath)
   }
 }
 
