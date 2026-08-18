@@ -151,7 +151,7 @@ function highlightCode(code: string, ext: string): string {
     ts: ['const','let','var','function','return','if','else','for','while','class','import','export','from','new','await','async','try','catch','throw','typeof','instanceof','break','continue','switch','case','default','do','in','of','void','delete','interface','type','enum','public','private','protected','readonly','extends','implements','as','namespace','declare','abstract'],
     py: ['def','class','return','if','elif','else','for','while','import','from','as','try','except','finally','with','raise','lambda','yield','global','nonlocal','pass','break','continue','assert','del','in','is','not','and','or','None','True','False'],
   }
-  const kws = kwMap[ext] || kwMap[js]
+  const kws = kwMap[ext] || kwMap['js']
   const kwRe = new RegExp('\\b(' + kws.join('|') + ')\\b','g')
   html = html.replace(kwRe, '<span style="color:#2563eb">$1</span>')
   // Numbers
