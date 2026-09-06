@@ -1541,6 +1541,7 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
+      overflow: hidden;
     }
 
     .p2p-chat-header {
@@ -1925,6 +1926,8 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
+      min-height: 0;
+      overflow: hidden;
     }
 
     @media (max-width: 699px) {
@@ -2115,6 +2118,10 @@
       display: flex;
       flex-direction: column;
       max-width: 1200px;
+      height: 100vh;
+      min-height: 100vh;
+      padding-bottom: 24px;
+      overflow: hidden;
     }
 
     .layout-row {
@@ -2214,6 +2221,7 @@
     #messagesViewBody {
       flex: 1;
       min-height: 0;
+      overflow: hidden;
     }
 
     @media (max-width: 767px) {
@@ -2223,6 +2231,9 @@
 
       .app.app-host {
         max-width: 100%;
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
       }
     }
 
@@ -3705,12 +3716,16 @@
       if (typeof EventSource !== 'undefined') {
         const es = new EventSource('/api/events?token=' + TOKEN);
         p2p.es = es;
-        es.addEventListener('p2p.snapshot', (e) => onP2pEvent('p2p.snapshot', safeJson(e.data)));
-        es.addEventListener('p2p.message', (e) => onP2pEvent('p2p.message', safeJson(e.data)));
-        es.addEventListener('p2p.file', (e) => onP2pEvent('p2p.file', safeJson(e.data)));
-        es.addEventListener('p2p.accepted', (e) => onP2pEvent('p2p.accepted', safeJson(e.data)));
-        es.addEventListener('p2p.rejected', (e) => onP2pEvent('p2p.rejected', safeJson(e.data)));
-        es.addEventListener('p2p.deleted', (e) => onP2pEvent('p2p.deleted', safeJson(e.data)));
+        // Track whether we've seen the initial snapshot yet. Events arriving
+        // before the snapshot are historical replays from the SSE reconnection
+        // and must not be treated as new messages.
+        let sseSnapshotSeen = false;
+        es.addEventListener('p2p.snapshot', (e) => { sseSnapshotSeen = true; onP2pEvent('p2p.snapshot', safeJson(e.data)); });
+        es.addEventListener('p2p.message', (e) => { if (!sseSnapshotSeen) return; onP2pEvent('p2p.message', safeJson(e.data)); });
+        es.addEventListener('p2p.file', (e) => { if (!sseSnapshotSeen) return; onP2pEvent('p2p.file', safeJson(e.data)); });
+        es.addEventListener('p2p.accepted', (e) => { if (!sseSnapshotSeen) return; onP2pEvent('p2p.accepted', safeJson(e.data)); });
+        es.addEventListener('p2p.rejected', (e) => { if (!sseSnapshotSeen) return; onP2pEvent('p2p.rejected', safeJson(e.data)); });
+        es.addEventListener('p2p.deleted', (e) => { if (!sseSnapshotSeen) return; onP2pEvent('p2p.deleted', safeJson(e.data)); });
         es.onopen = () => {
           document.getElementById('p2pReconnect').classList.remove('show');
           // SSE is the realtime channel — stop any fallback poll once it's up.
@@ -3741,18 +3756,33 @@
     async function pollP2pOnce() {
       if (!p2p.ready) return;
       try {
+        const firstPoll = p2p.pollSince === 0;
         const res = await p2pApi('/api/p2p/poll?since=' + p2p.pollSince);
         const data = await res.json();
         if (!data.ok) return;
         // Authoritative session snapshot (active/rejected/pending).
         if (data.session) applyP2pSession(data.session);
         // Per-event handling is scoped to the current session (onP2pEvent).
-        for (const ev of data.events) onP2pEvent(ev.type, ev.data);
+        // On the very first poll after a page refresh, all events in the ring
+        // buffer are historical replays. We must NOT let them update
+        // p2p.lastSeq, otherwise the subsequent fetchP2pMessages() (which uses
+        // after=lastSeq) would skip messages that were already evicted from
+        // the ring buffer. The full history is recovered via
+        // fetchP2pMessages() when the drawer opens or the session becomes
+        // active.
+        for (const ev of data.events) {
+          if (firstPoll && (ev.type === 'p2p.message' || ev.type === 'p2p.file')) {
+            // Skip historical message/file events — they will be pulled
+            // in full via /api/p2p/messages when needed.
+            continue;
+          }
+          onP2pEvent(ev.type, ev.data);
+        }
         p2p.pollSince = data.since;
       } catch (_e) { /* ignore */ }
     }
 
-    function onP2pEvent(type, data) {
+    function onP2pEvent(type, data, forceSilent) {
       if (type === 'p2p.snapshot') { applyP2pSession(data); return; }
       if (type === 'p2p.accepted') { applyP2pSession({ id: data.sessionId, status: 'active', peerName: data.peerName }); return; }
       if (type === 'p2p.rejected') {
@@ -3774,7 +3804,7 @@
         if (p2p.drawing) showToast('连接已删除');
         return;
       }
-      if (type === 'p2p.message' || type === 'p2p.file') { if (data) onIncomingMessage(data); return; }
+      if (type === 'p2p.message' || type === 'p2p.file') { if (data) onIncomingMessage(data, { silent: p2p.drawing || forceSilent }); return; }
       if (type === 'p2p.msgdeleted') {
         // The peer deleted a message — drop it from our local history too.
         p2p.messages = p2p.messages.filter(m => m.id !== data.msgId);
@@ -3788,16 +3818,23 @@
       // Only re-render when the session actually changed. The background poll
       // would otherwise rebuild the drawer (and its inputs) every 2s, stealing
       // focus and wiping typed text.
+      const prevActive = prev && prev.status === 'active';
+      const nowActive = snap && snap.status === 'active';
       const changed = (!!snap !== !!prev) || (prev && snap && (prev.id !== snap.id || prev.status !== snap.status));
       p2p.session = snap;
       if (changed && p2p.drawing) {
-        if (snap && snap.status === 'active') { fetchP2pMessages(); renderP2pDrawer(); }
+        if (nowActive) { fetchP2pMessages({ silent: true }); renderP2pDrawer(); }
         else renderP2pDrawer();
+      } else if (!prevActive && nowActive && !p2p.drawing) {
+        // Session just became active in the background (e.g. host accepted
+        // while the drawer was closed). Pre-fetch history silently so it's
+        // ready when the user opens the drawer.
+        fetchP2pMessages({ silent: true });
       }
       updateP2pBadge();
     }
 
-    function onIncomingMessage(msg) {
+    function onIncomingMessage(msg, opts) {
       if (!msg || typeof msg.seq !== 'number' || msg.seq <= p2p.lastSeq) return;
       p2p.messages.push(msg);
       p2p.lastSeq = msg.seq;
@@ -3805,19 +3842,19 @@
         renderP2pChat();
         scrollP2pChat();
         p2pApi('/api/p2p/read', 'POST', { session: p2p.session.id });
-      } else if (msg.from === 'host') {
+      } else if (msg.from === 'host' && !(opts && opts.silent)) {
         p2p.unread++;
         updateP2pBadge();
         showToast('收到消息：' + (msg.kind === 'text' ? msg.text.slice(0, 20) : '[文件] ' + ((msg.files && msg.files[0] && msg.files[0].name) || '')));
       }
     }
 
-    async function fetchP2pMessages() {
+    async function fetchP2pMessages(opts) {
       if (!p2p.session || p2p.session.status !== 'active') return;
       try {
         const res = await p2pApi('/api/p2p/messages?session=' + p2p.session.id + '&after=' + p2p.lastSeq);
         const data = await res.json();
-        for (const m of (data.messages || [])) onIncomingMessage(m);
+        for (const m of (data.messages || [])) onIncomingMessage(m, opts);
       } catch (_e) { /* ignore */ }
     }
 
@@ -3831,7 +3868,9 @@
       setMobileNav('p2p');
       renderP2pDrawer();
       if (p2p.session && p2p.session.status === 'active') {
-        fetchP2pMessages();
+        // Silent fetch: messages recovered on open must never trigger an
+        // unread toast or increment the badge — the user is already looking.
+        fetchP2pMessages({ silent: true });
         p2pApi('/api/p2p/read', 'POST', { session: p2p.session.id });
       }
       // Refresh the session state from the server whenever the drawer opens,
@@ -3840,7 +3879,7 @@
       if (p2p.ready) {
         pollP2pOnce().then(() => {
           if (p2p.drawing && p2p.session && p2p.session.status === 'active') {
-            fetchP2pMessages();
+            fetchP2pMessages({ silent: true });
             p2pApi('/api/p2p/read', 'POST', { session: p2p.session.id });
             renderP2pDrawer();
           }
@@ -4252,7 +4291,7 @@
         if (e.lengthComputable) { const p = Math.round(e.loaded / e.total * 100); fill.style.width = p + '%'; pct.textContent = p + '%'; }
       };
       xhr.onload = () => {
-        if (xhr.status === 200) { showToast(fileList.length > 1 ? '文件已发送' : '文件已发送'); fetchP2pMessages(); }
+        if (xhr.status === 200) { showToast(fileList.length > 1 ? '文件已发送' : '文件已发送'); fetchP2pMessages({ silent: true }); }
         else {
           let err = '发送失败';
           try { err = JSON.parse(xhr.responseText).error || err } catch (_e) { /* ignore */ }
@@ -4769,6 +4808,10 @@
       if (!input || !host.selectedId) return;
       const text = input.value.trim();
       if (!text) return;
+      // Clear the input *before* renderHostBody triggers a re-render,
+      // otherwise renderHostBody will restore the old value from the DOM.
+      input.value = '';
+      const b0 = document.getElementById('hostSendBtn'); if (b0) b0.disabled = true;
       try {
         const res = await hostApi('/api/host/p2p/message', 'POST', { session: host.selectedId, text: text });
         const data = await res.json().catch(() => ({}));
@@ -4776,8 +4819,6 @@
           if (data.msg.seq > host.lastSeq) { host.messages.push(data.msg); host.lastSeq = data.msg.seq; renderHostBody(); }
         } else showToast(data.error || '发送失败');
       } catch (_e) { showToast('网络错误'); }
-      input.value = '';
-      const b = document.getElementById('hostSendBtn'); if (b) b.disabled = true;
       input.focus();
     }
 
